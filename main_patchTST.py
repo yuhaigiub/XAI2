@@ -21,14 +21,14 @@ parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
 parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay rate')
-parser.add_argument('--epochs', type=int, default=1, help='')
+parser.add_argument('--epochs', type=int, default=5, help='')
 parser.add_argument('--print_every', type=int, default=50, help='')
-parser.add_argument('--save', type=str, default='store/checkpoint/patchTST', help='save path')
+parser.add_argument('--save', type=str, default='saved_models', help='save path')
 
-parser.add_argument('--context_window', type=str, default=12, help='sequence length')
-parser.add_argument('--target_window', type=str, default=12, help='predict length')
-parser.add_argument('--patch_len', type=str, default=1, help='patch length')
-parser.add_argument('--stride', type=str, default=1, help='stride')
+parser.add_argument('--context_window', type=int, default=12, help='sequence length')
+parser.add_argument('--target_window', type=int, default=12, help='predict length')
+parser.add_argument('--patch_len', type=int, default=1, help='patch length')
+parser.add_argument('--stride', type=int, default=1, help='stride')
 
 args = parser.parse_args()
 
@@ -111,9 +111,9 @@ def main():
         mvalid_mape = np.mean(valid_mape)
         mvalid_rmse = np.mean(valid_rmse)
         his_loss.append(mvalid_loss)
-
+        
+        torch.save(engine.patchTST.state_dict(), args.save + "/G_T_model_" + str(i) + ".pth")
         if np.argmin(his_loss) == len(his_loss) - 1:
-            torch.save(engine.patchTST.state_dict(), args.save + "/epoch_" + str(i) + ".pth")
             best_epoch = i
 
         log = 'Epoch: {:03d}, Train Loss: {:.4f}, Train MAPE: {:.4f}, ' + \
@@ -133,7 +133,7 @@ def main():
     print("Average Inference Time: {:.4f} secs".format(np.mean(val_time)))
 
     # testing
-    engine.patchTST.load_state_dict(torch.load(args.save + "/epoch_" + str(best_epoch) + ".pth"))
+    engine.patchTST.load_state_dict(torch.load(args.save + "/G_T_model_" + str(best_epoch) + ".pth"))
     outputs = []
     realy = torch.Tensor(dataloader['y_test']).to(device)
     # realy = realy.transpose(1, 3)[:, 0, :, :]
