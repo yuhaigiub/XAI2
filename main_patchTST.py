@@ -21,7 +21,7 @@ parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
 parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay rate')
-parser.add_argument('--epochs', type=int, default=100, help='')
+parser.add_argument('--epochs', type=int, default=1, help='')
 parser.add_argument('--print_every', type=int, default=50, help='')
 parser.add_argument('--save', type=str, default='store/checkpoint/patchTST', help='save path')
 
@@ -90,12 +90,10 @@ def main():
         s1 = time.time()
         for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
             testx = torch.Tensor(x).to(device)
-            testx = testx.transpose(1, 3)
             
             testy = torch.Tensor(y).to(device)
-            testy = testy.transpose(1, 3)
             
-            metrics = engine.eval(testx, testy[:, 0, :, :])
+            metrics = engine.eval(testx, testy)
             valid_loss.append(metrics[0])
             valid_mape.append(metrics[1])
             valid_rmse.append(metrics[2])
@@ -115,7 +113,7 @@ def main():
         his_loss.append(mvalid_loss)
 
         if np.argmin(his_loss) == len(his_loss) - 1:
-            torch.save(engine.gwnet.state_dict(), args.save + "/epoch_" + str(i) + ".pth")
+            torch.save(engine.patchTST.state_dict(), args.save + "/epoch_" + str(i) + ".pth")
             best_epoch = i
 
         log = 'Epoch: {:03d}, Train Loss: {:.4f}, Train MAPE: {:.4f}, ' + \
@@ -135,16 +133,18 @@ def main():
     print("Average Inference Time: {:.4f} secs".format(np.mean(val_time)))
 
     # testing
-    engine.gwnet.load_state_dict(torch.load(args.save + "/epoch_" + str(best_epoch) + ".pth"))
+    engine.patchTST.load_state_dict(torch.load(args.save + "/epoch_" + str(best_epoch) + ".pth"))
     outputs = []
     realy = torch.Tensor(dataloader['y_test']).to(device)
-    realy = realy.transpose(1, 3)[:, 0, :, :]
+    # realy = realy.transpose(1, 3)[:, 0, :, :]
+    realy = realy[..., 0].squeeze(-1)
 
     for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
         testx = torch.Tensor(x).to(device)
+        testx = testx[..., 0].squeeze(-1)
         with torch.no_grad():
-            preds = engine.gwnet(testx, engine.edge_index, engine.edge_weight)
-            preds = preds.transpose(1, 3)
+            preds = engine.patchTST(testx)
+            # preds = preds.transpose(1, 3)
         outputs.append(preds.squeeze())
 
     yhat = torch.cat(outputs, dim=0)
