@@ -114,8 +114,8 @@ def main():
         test_mape = []
         test_rmse = []
 
-        s1 = time.time()
-        for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
+        
+        for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
             testx = torch.Tensor(x).to(device)
             
             testy = torch.Tensor(y).to(device)
