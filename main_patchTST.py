@@ -5,8 +5,8 @@ import time
 import numpy as np
 import torch
 import util
+# from patchTST.model import Model
 from patchTST.modelXAI import Model
-
 parser = argparse.ArgumentParser()
 
 """
@@ -21,7 +21,7 @@ parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
 parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay rate')
-parser.add_argument('--epochs', type=int, default=3, help='')
+parser.add_argument('--epochs', type=int, default=25, help='')
 parser.add_argument('--print_every', type=int, default=50, help='')
 parser.add_argument('--save', type=str, default='saved_models/patchTST', help='save path')
 
@@ -54,6 +54,16 @@ def main():
                    stride=args.stride,
                    blackbox_file=args.blackbox_file)
 
+    # engine = Model(scaler=scaler,
+    #                num_nodes=args.num_nodes,
+    #                lrate=args.learning_rate, 
+    #                wdecay=args.weight_decay, 
+    #                device=device,
+    #                adj_mx=adj_mx, 
+    #                context_window=args.context_window,
+    #                target_window=args.target_window,
+    #                patch_len=args.patch_len,
+    #                stride=args.stride)
     # Load model
     # engine.patchTST.load_state_dict(torch.load(args.save + "/G_T_model_" + str(args.iter_epoch - 1) + ".pth"))
     if not os.path.exists(args.save):
@@ -116,11 +126,10 @@ def main():
 
         
         for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
-            testx = torch.Tensor(x).to(device)
+            testx_ = torch.Tensor(x).to(device)
+            testy_ = torch.Tensor(y).to(device)
             
-            testy = torch.Tensor(y).to(device)
-            
-            metrics = engine.eval(testx, testy)
+            metrics = engine.eval(testx_, testy_)
             test_loss.append(metrics[0])
             test_mape.append(metrics[1])
             test_rmse.append(metrics[2])
@@ -140,7 +149,7 @@ def main():
         
         his_loss.append(mvalid_loss)
         
-        torch.save(engine.patchTST.state_dict(), args.save + "/G_T_model_" + str(args.iter_epoch) + ".pth")
+        torch.save(engine.patchTST.state_dict(), args.save + "/G_T_model_" + str(i) + ".pth")
         if np.argmin(his_loss) == len(his_loss) - 1:
             best_epoch = args.iter_epoch
 
@@ -148,7 +157,7 @@ def main():
               'Train RMSE: {:.4f}, Valid Loss: {:.4f}, Valid MAPE: {:.4f}, ' + \
               'Valid RMSE: {:.4f}, Training Time: {:.4f}/epoch'
 
-        print(log.format(args.iter_epoch, 
+        print(log.format(i, 
                          mtrain_loss, 
                          mtrain_mape, 
                          mtrain_rmse, 
@@ -160,11 +169,11 @@ def main():
                          mtest_rmse,
                          (t2 - t1)))
         
-        log_file_train.write(f'Epoch {args.iter_epoch}, Training Loss: {mtrain_loss:.4f}, Training MAPE: {mtrain_mape:.4f}, Training RMSE: {mtrain_rmse:.4f} \n')
+        log_file_train.write(f'Epoch {i}, Training Loss: {mtrain_loss:.4f}, Training MAPE: {mtrain_mape:.4f}, Training RMSE: {mtrain_rmse:.4f} \n')
         log_file_train.flush()
-        log_file_val.write(f'Epoch {args.iter_epoch}, Val Loss: {mvalid_loss:.4f}, Val MAPE: {mvalid_mape:.4f}, Val RMSE: {mvalid_rmse:.4f} \n')
+        log_file_val.write(f'Epoch {i}, Val Loss: {mvalid_loss:.4f}, Val MAPE: {mvalid_mape:.4f}, Val RMSE: {mvalid_rmse:.4f} \n')
         log_file_val.flush()
-        log_file_test.write(f'Epoch {args.iter_epoch}, Test Loss: {mvalid_loss:.4f}, Test MAPE: {mvalid_mape:.4f}, Test RMSE: {mvalid_rmse:.4f} \n')
+        log_file_test.write(f'Epoch {i}, Test Loss: {mtest_loss:.4f}, Test MAPE: {mtest_mape:.4f}, Test RMSE: {mtest_rmse:.4f} \n')
         log_file_test.flush()
     print("Average Training Time: {:.4f} secs/epoch".format(np.mean(train_time)))
     print("Average Inference Time: {:.4f} secs".format(np.mean(val_time)))
