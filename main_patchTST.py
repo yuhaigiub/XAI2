@@ -55,7 +55,7 @@ def main():
                    blackbox_file=args.blackbox_file)
 
     # Load model
-    engine.patchTST.load_state_dict(torch.load(args.save + "/G_T_model_" + str(args.iter_epoch - 1) + ".pth"))
+    # engine.patchTST.load_state_dict(torch.load(args.save + "/G_T_model_" + str(args.iter_epoch - 1) + ".pth"))
     if not os.path.exists(args.save):
         os.makedirs(args.save)
     
