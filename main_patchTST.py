@@ -21,15 +21,16 @@ parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
 parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay rate')
-parser.add_argument('--epochs', type=int, default=1, help='')
+parser.add_argument('--epochs', type=int, default=3, help='')
 parser.add_argument('--print_every', type=int, default=50, help='')
-parser.add_argument('--save', type=str, default='saved_models', help='save path')
+parser.add_argument('--save', type=str, default='saved_models/patchTST', help='save path')
 
 parser.add_argument('--context_window', type=int, default=12, help='sequence length')
 parser.add_argument('--target_window', type=int, default=12, help='predict length')
 parser.add_argument('--patch_len', type=int, default=1, help='patch length')
 parser.add_argument('--stride', type=int, default=1, help='stride')
 parser.add_argument('--blackbox_file', type=str, default='save_blackbox/G_T_model_1.pth', help='blackbox .pth file')
+parser.add_argument('--iter_epoch', type=str, default=1, help='using for save pth file')
 
 args = parser.parse_args()
 
@@ -53,12 +54,14 @@ def main():
                    stride=args.stride,
                    blackbox_file=args.blackbox_file)
 
+    # Load model
+    engine.patchTST.load_state_dict(torch.load(args.save + "/G_T_model_" + str(args.iter_epoch - 1) + ".pth"))
     if not os.path.exists(args.save):
         os.makedirs(args.save)
     
     log_file_train = open('loss_train_log.txt', 'w')
     log_file_val = open('loss_val_log.txt', 'w')
-
+    log_file_test = open('loss_test_log.txt', 'w')
 
     print("start training...", flush=True)
     his_loss = []
@@ -66,7 +69,7 @@ def main():
     train_time = []
     best_epoch = 0
 
-    for i in range(1, args.epochs + 1):
+    for i in range(args.iter_epoch, args.epochs + 1):
         train_loss = []
         train_mape = []
         train_rmse = []
@@ -96,9 +99,7 @@ def main():
         s1 = time.time()
         for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
             testx = torch.Tensor(x).to(device)
-            
             testy = torch.Tensor(y).to(device)
-            
             metrics = engine.eval(testx, testy)
             valid_loss.append(metrics[0])
             valid_mape.append(metrics[1])
@@ -107,8 +108,24 @@ def main():
         s2 = time.time()
         log = 'Epoch: {:03d}, Inference Time: {:.4f} secs'
         print(log.format(i, (s2 - s1)))
-        
         val_time.append(s2 - s1)
+        
+        test_loss = []
+        test_mape = []
+        test_rmse = []
+
+        s1 = time.time()
+        for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
+            testx = torch.Tensor(x).to(device)
+            
+            testy = torch.Tensor(y).to(device)
+            
+            metrics = engine.eval(testx, testy)
+            test_loss.append(metrics[0])
+            test_mape.append(metrics[1])
+            test_rmse.append(metrics[2])
+            
+            
         mtrain_loss = np.mean(train_loss)
         mtrain_mape = np.mean(train_mape)
         mtrain_rmse = np.mean(train_rmse)
@@ -116,29 +133,39 @@ def main():
         mvalid_loss = np.mean(valid_loss)
         mvalid_mape = np.mean(valid_mape)
         mvalid_rmse = np.mean(valid_rmse)
+        
+        mtest_loss = np.mean(test_loss)
+        mtest_mape = np.mean(test_mape)
+        mtest_rmse = np.mean(test_rmse)
+        
         his_loss.append(mvalid_loss)
         
-        torch.save(engine.patchTST.state_dict(), args.save + "/G_T_model_" + str(i) + ".pth")
+        torch.save(engine.patchTST.state_dict(), args.save + "/G_T_model_" + str(args.iter_epoch) + ".pth")
         if np.argmin(his_loss) == len(his_loss) - 1:
-            best_epoch = i
+            best_epoch = args.iter_epoch
 
         log = 'Epoch: {:03d}, Train Loss: {:.4f}, Train MAPE: {:.4f}, ' + \
               'Train RMSE: {:.4f}, Valid Loss: {:.4f}, Valid MAPE: {:.4f}, ' + \
               'Valid RMSE: {:.4f}, Training Time: {:.4f}/epoch'
 
-        print(log.format(i, 
+        print(log.format(args.iter_epoch, 
                          mtrain_loss, 
                          mtrain_mape, 
                          mtrain_rmse, 
                          mvalid_loss,
                          mvalid_mape, 
                          mvalid_rmse, 
+                         mtest_loss,
+                         mtest_mape,
+                         mtest_rmse,
                          (t2 - t1)))
         
-        log_file_train.write(f'Epoch {i}, Training Loss: {mtrain_loss:.4f}, Training MAPE: {mtrain_mape:.4f}, Training RMSE: {mtrain_rmse:.4f} \n')
+        log_file_train.write(f'Epoch {args.iter_epoch}, Training Loss: {mtrain_loss:.4f}, Training MAPE: {mtrain_mape:.4f}, Training RMSE: {mtrain_rmse:.4f} \n')
         log_file_train.flush()
-        log_file_val.write(f'Epoch {i}, Val Loss: {mvalid_loss:.4f}, Val MAPE: {mvalid_mape:.4f}, Val RMSE: {mvalid_rmse:.4f} \n')
+        log_file_val.write(f'Epoch {args.iter_epoch}, Val Loss: {mvalid_loss:.4f}, Val MAPE: {mvalid_mape:.4f}, Val RMSE: {mvalid_rmse:.4f} \n')
         log_file_val.flush()
+        log_file_test.write(f'Epoch {args.iter_epoch}, Test Loss: {mvalid_loss:.4f}, Test MAPE: {mvalid_mape:.4f}, Test RMSE: {mvalid_rmse:.4f} \n')
+        log_file_test.flush()
     print("Average Training Time: {:.4f} secs/epoch".format(np.mean(train_time)))
     print("Average Inference Time: {:.4f} secs".format(np.mean(val_time)))
 
