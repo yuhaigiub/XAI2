@@ -21,7 +21,7 @@ parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
 parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay rate')
-parser.add_argument('--epochs', type=int, default=5, help='')
+parser.add_argument('--epochs', type=int, default=1, help='')
 parser.add_argument('--print_every', type=int, default=50, help='')
 parser.add_argument('--save', type=str, default='saved_models', help='save path')
 
@@ -55,6 +55,10 @@ def main():
 
     if not os.path.exists(args.save):
         os.makedirs(args.save)
+    
+    log_file_train = open('loss_train_log.txt', 'w')
+    log_file_val = open('loss_val_log.txt', 'w')
+
 
     print("start training...", flush=True)
     his_loss = []
@@ -129,8 +133,12 @@ def main():
                          mvalid_loss,
                          mvalid_mape, 
                          mvalid_rmse, 
-                         (t2 - t1)), 
-              flush=True)
+                         (t2 - t1)))
+        
+        log_file_train.write(f'Epoch {i}, Training Loss: {mtrain_loss:.4f}, Training MAPE: {mtrain_mape:.4f}, Training RMSE: {mtrain_rmse:.4f} \n')
+        log_file_train.flush()
+        log_file_val.write(f'Epoch {i}, Val Loss: {mvalid_loss:.4f}, Val MAPE: {mvalid_mape:.4f}, Val RMSE: {mvalid_rmse:.4f} \n')
+        log_file_val.flush()
     print("Average Training Time: {:.4f} secs/epoch".format(np.mean(train_time)))
     print("Average Inference Time: {:.4f} secs".format(np.mean(val_time)))
 
