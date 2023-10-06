@@ -5,7 +5,7 @@ import time
 import numpy as np
 import torch
 import util
-from patchTST.model import Model
+from patchTST.modelXAI import Model
 
 parser = argparse.ArgumentParser()
 
@@ -29,6 +29,7 @@ parser.add_argument('--context_window', type=int, default=12, help='sequence len
 parser.add_argument('--target_window', type=int, default=12, help='predict length')
 parser.add_argument('--patch_len', type=int, default=1, help='patch length')
 parser.add_argument('--stride', type=int, default=1, help='stride')
+parser.add_argument('--blackbox_file', type=str, default='save_blackbox/G_T_model_1.pth', help='blackbox .pth file')
 
 args = parser.parse_args()
 
@@ -49,7 +50,8 @@ def main():
                    context_window=args.context_window,
                    target_window=args.target_window,
                    patch_len=args.patch_len,
-                   stride=args.stride)
+                   stride=args.stride,
+                   blackbox_file=args.blackbox_file)
 
     if not os.path.exists(args.save):
         os.makedirs(args.save)

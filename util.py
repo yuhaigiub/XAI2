@@ -35,8 +35,7 @@ class DataLoader(object):
         def _wrapper():
             while self.current_ind < self.num_batch:
                 start_ind = self.batch_size * self.current_ind
-                end_ind = min(self.size,
-                              self.batch_size * (self.current_ind + 1))
+                end_ind = min(self.size, self.batch_size * (self.current_ind + 1))
                 x_i = self.xs[start_ind:end_ind, ...]
                 y_i = self.ys[start_ind:end_ind, ...]
                 yield (x_i, y_i)
@@ -67,8 +66,7 @@ def sym_adj(adj):
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
     d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).astype(
-        np.float32).todense()
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).astype(np.float32).todense()
 
 
 def load_pickle(pickle_file):
@@ -89,16 +87,14 @@ def load_adj(pkl_filename):
     return sensor_ids, sensor_id_to_ind, adj_mx
 
 
-def load_dataset(dataset_dir, batch_size, valid_batch_size=None,
-                 test_batch_size=None):
+def load_dataset(dataset_dir, batch_size, valid_batch_size=None, test_batch_size=None):
     data = {}
     for category in ['train', 'val', 'test']:
         cat_data = np.load(os.path.join(dataset_dir, category + '.npz'))
         data['x_' + category] = cat_data['x']
         data['y_' + category] = cat_data['y']
 
-    scaler = StandardScaler(mean=data['x_train'][..., 0].mean(),
-                            std=data['x_train'][..., 0].std())
+    scaler = StandardScaler(mean=data['x_train'][..., 0].mean(), std=data['x_train'][..., 0].std())
 
     for category in ['train', 'val', 'test']:
         data['x_' + category][...,
