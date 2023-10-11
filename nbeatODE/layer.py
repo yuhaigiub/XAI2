@@ -19,13 +19,12 @@ class ODEFunc(nn.Module):
 
 
 class ODEBlock(nn.Module):
-    def __init__(self, input_dim, hidden_dim, time_steps):
+    def __init__(self, input_dim, hidden_dim):
         super(ODEBlock, self).__init__()
         self.odefunc = ODEFunc(input_dim, hidden_dim)
-        self.time_steps = time_steps
 
     def forward(self, x):
-        t = torch.linspace(0, 1, self.time_steps).to(x.device)
+        t=torch.tensor([0,1]).type_as(x).to(x.device)
         out = odeint(self.odefunc, x, t, method='euler')
         return out
 
@@ -57,9 +56,9 @@ class STGCNBlock(nn.Module):
 
 
 class ODEGCN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, time_steps, adjacency_matrix):
+    def __init__(self, input_dim, hidden_dim, adjacency_matrix):
         super(ODEGCN, self).__init__()
-        self.ode_block = ODEBlock(input_dim, hidden_dim, time_steps)
+        self.ode_block = ODEBlock(input_dim, hidden_dim)
         self.stgcn_block = STGCNBlock(input_dim, hidden_dim, adjacency_matrix)
 
     def forward(self, x):
@@ -120,7 +119,7 @@ class NBEATS(nn.Module):
 class CombinedModel(nn.Module):
     def __init__(self, batch_size, timesteps, num_nodes, channels, hidden_dim, num_layers, adjacency_matrix):
         super(CombinedModel, self).__init__()
-        self.ode_block = ODEGCN(channels, hidden_dim, timesteps, adjacency_matrix)
+        self.ode_block = ODEGCN(channels, hidden_dim, adjacency_matrix)
         self.nbeats_block = NBEATS(batch_size, timesteps, num_nodes, channels, hidden_dim, num_layers)
 
     def forward(self, x):
