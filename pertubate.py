@@ -25,7 +25,6 @@ class FadeMovingAverage(Pertubation):
         T = X.shape[0]
         moving_average = torch.mean(X, 0).to(self.device)
         moving_average_tilted = moving_average.repeat(T, 1, 1, 1)
-        print(moving_average_tilted.shape)
         X_pert = mask_tensor * X + (1 - mask_tensor) * moving_average_tilted
         
         return X_pert

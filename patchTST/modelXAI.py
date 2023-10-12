@@ -22,7 +22,7 @@ class Model():
         self.blackbox.to(device)
         
         self.device = device
-        self.optimizer = optim.Adam(self.patchTST.parameters(), lr=lrate, weight_decay=wdecay)
+        # self.optimizer = optim.Adam(self.patchTST.parameters(), lr=lrate, weight_decay=wdecay)
         self.loss = util.masked_mae
         self.scaler = scaler
         self.clip = 5
@@ -45,6 +45,8 @@ class Model():
         self.edge_weight = torch.tensor(self.edge_weight)
         
         self.saliency = 0.5 * torch.ones(size=[8, 12, 207], device=self.device)
+        self.saliency = self.saliency.clone().detach().requires_grad_(True)
+        self.optimizer = optim.Adam([self.saliency], lr=lrate, weight_decay=wdecay)
 
     def train(self, input: torch.Tensor, real_val):
         self.patchTST.train()
@@ -56,7 +58,7 @@ class Model():
         X_pert = self.pertubation.apply(input, self.saliency.unsqueeze(-1))
         X_pert = X_pert.transpose(1, 3).transpose(-3, -1)
         
-        self.saliency = self.patchTST(input.squeeze(-1))
+        # self.saliency = self.patchTST(input.squeeze(-1))
         
         # X = input.transpose(1, 3).transpose(-3, -1)
         # Y = 0 # TODO:
@@ -90,10 +92,10 @@ class Model():
         # only take the first feature
         input = input[..., 0:1]
         
-        saliency = self.patchTST(input.squeeze(-1))
+        # saliency = self.patchTST(input.squeeze(-1))
         
-        X = input.transpose(1, 3).transpose(-3, -1)
-        Y = 0 # TODO:
+        # X = input.transpose(1, 3).transpose(-3, -1)
+        # Y = 0 # TODO:
         
         X_pert = self.pertubation.apply(input, self.saliency.unsqueeze(-1))
         X_pert = X_pert.transpose(1, 3).transpose(-3, -1)
