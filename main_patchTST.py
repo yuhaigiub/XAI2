@@ -17,11 +17,11 @@ parser.add_argument('--data', type=str, default='store/METR-LA', help='data path
 parser.add_argument('--adjdata', type=str, default='store/adj_mx.pkl', help='adj data path')
 parser.add_argument('--in_dim', type=int, default=2, help='inputs dimension')
 parser.add_argument('--num_nodes', type=int, default=207, help='number of nodes')
-parser.add_argument('--batch_size', type=int, default=64, help='batch size')
+parser.add_argument('--batch_size', type=int, default=8, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
 parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay rate')
-parser.add_argument('--epochs', type=int, default=25, help='')
+parser.add_argument('--epochs', type=int, default=5, help='')
 parser.add_argument('--print_every', type=int, default=50, help='')
 parser.add_argument('--save', type=str, default='saved_models/patchTST', help='save path')
 
@@ -29,8 +29,8 @@ parser.add_argument('--context_window', type=int, default=12, help='sequence len
 parser.add_argument('--target_window', type=int, default=12, help='predict length')
 parser.add_argument('--patch_len', type=int, default=1, help='patch length')
 parser.add_argument('--stride', type=int, default=1, help='stride')
-parser.add_argument('--blackbox_file', type=str, default='saved_blackbox/G_T_model_1.pth', help='blackbox .pth file')
-parser.add_argument('--starts_at', type=int, default=0, help='0 if fresh train, > 0 if you want to load previous epochs')
+parser.add_argument('--blackbox_file', type=str, default='save_blackbox/G_T_model_1.pth', help='blackbox .pth file')
+parser.add_argument('--iter_epoch', type=str, default=1, help='using for save pth file')
 
 args = parser.parse_args()
 
@@ -41,7 +41,7 @@ def main():
     
     # Mean / std dev scaling is performed to the model output
     scaler = dataloader['scaler']
-    
+
     engine = Model(scaler=scaler,
                    num_nodes=args.num_nodes,
                    lrate=args.learning_rate, 
@@ -86,7 +86,7 @@ def main():
         t1 = time.time()
         dataloader['train_loader'].shuffle()
         for iter, (x, y) in enumerate(dataloader['train_loader'].get_iterator()):
-            trainx = torch.Tensor(x).to(device)    
+            trainx = torch.Tensor(x[..., 0:1]).to(device)    
             trainy = torch.Tensor(y).to(device)
             
             metrics = engine.train(trainx, trainy)
@@ -108,7 +108,7 @@ def main():
 
         s1 = time.time()
         for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
-            testx = torch.Tensor(x).to(device)
+            testx = torch.Tensor(x[..., 0:1]).to(device)
             testy = torch.Tensor(y).to(device)
             metrics = engine.eval(testx, testy)
             valid_loss.append(metrics[0])
@@ -126,7 +126,7 @@ def main():
 
         
         for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
-            testx_ = torch.Tensor(x).to(device)
+            testx_ = torch.Tensor(x[..., 0:1]).to(device)
             testy_ = torch.Tensor(y).to(device)
             
             metrics = engine.eval(testx_, testy_)
@@ -187,7 +187,7 @@ def main():
 
     for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
         testx = torch.Tensor(x).to(device)
-        testx = testx[..., 0].squeeze(-1)
+        testx = testx[..., 0:1].squeeze(-1)
         with torch.no_grad():
             preds = engine.patchTST(testx)
             # preds = preds.transpose(1, 3)
