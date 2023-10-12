@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from pertubate import apply_gaussian_blur
+from pertubate import FadeMovingAverage
 import util
 
 from patchTST.patchTST import PatchTST
@@ -15,7 +15,7 @@ class Model():
                  blackbox_file):
         self.patchTST = PatchTST(device, context_window, target_window, patch_len, stride)
         
-        self.blackbox = GraphWaveNet(num_nodes, 2, 1, 12)
+        self.blackbox = GraphWaveNet(num_nodes, 1, 1, 12)
         self.blackbox.load_state_dict(torch.load(blackbox_file))
         
         self.patchTST.to(device)
@@ -26,6 +26,8 @@ class Model():
         self.loss = util.masked_mae
         self.scaler = scaler
         self.clip = 5
+        
+        self.pertubation = FadeMovingAverage(device)
 
         self.edge_index = [[], []]
         self.edge_weight = []
@@ -46,16 +48,20 @@ class Model():
         self.patchTST.train()
         self.optimizer.zero_grad()
         
-        inputTST = input[..., 0]        
-        inputTST = inputTST.squeeze(-1)
-        saliency = self.patchTST(inputTST)
+        # only take the first feature
+        input = input[..., 0:1]
         
-        input = apply_gaussian_blur(self.device, input, saliency.unsqueeze(-1))
+        saliency = self.patchTST(input.squeeze(-1))
         
-        inputBlackbox = input.transpose(1, 3).transpose(-3, -1)
+        X = input.transpose(1, 3).transpose(-3, -1)
+        Y = 0 # TODO:
+        
+        X_pert = self.pertubation.apply(input, saliency.unsqueeze(-1))
+        X_pert = X_pert.transpose(1, 3).transpose(-3, -1)
+        
         real_val = real_val.transpose(1, 3)[:, 0,: ,: ]
         
-        output = self.blackbox(inputBlackbox, self.edge_index, self.edge_weight)
+        output = self.blackbox(X_pert, self.edge_index, self.edge_weight)
         output = output.transpose(-3, -1)
         
         real = torch.unsqueeze(real_val, dim=1)
@@ -76,16 +82,20 @@ class Model():
     def eval(self, input: torch.Tensor, real_val):
         self.patchTST.eval()
         
-        inputTST = input[..., 0]        
-        inputTST = inputTST.squeeze(-1)
-        saliency = self.patchTST(inputTST)
+        # only take the first feature
+        input = input[..., 0:1]
         
-        input = apply_gaussian_blur(self.device, input, saliency.unsqueeze(-1))
+        saliency = self.patchTST(input.squeeze(-1))
         
-        inputBlackbox = input.transpose(1, 3).transpose(-3, -1)
+        X = input.transpose(1, 3).transpose(-3, -1)
+        Y = 0 # TODO:
+        
+        X_pert = self.pertubation.apply(input, saliency.unsqueeze(-1))
+        X_pert = X_pert.transpose(1, 3).transpose(-3, -1)
+        
         real_val = real_val.transpose(1, 3)[:, 0,: ,: ]
         
-        output = self.blackbox(inputBlackbox, self.edge_index, self.edge_weight)
+        output = self.blackbox(X_pert, self.edge_index, self.edge_weight)
         output = output.transpose(-3, -1)
         
         real = torch.unsqueeze(real_val, dim=1)

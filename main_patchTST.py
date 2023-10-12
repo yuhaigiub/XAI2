@@ -29,7 +29,8 @@ parser.add_argument('--context_window', type=int, default=12, help='sequence len
 parser.add_argument('--target_window', type=int, default=12, help='predict length')
 parser.add_argument('--patch_len', type=int, default=1, help='patch length')
 parser.add_argument('--stride', type=int, default=1, help='stride')
-parser.add_argument('--blackbox_file', type=str, default='save_blackbox/G_T_model_1.pth', help='blackbox .pth file')
+parser.add_argument('--blackbox_file', type=str, default='saved_blackbox/G_T_model_1.pth', help='blackbox .pth file')
+parser.add_argument('--starts_at', type=int, default=0, help='0 if fresh train, > 0 if you want to load previous epochs')
 
 args = parser.parse_args()
 
@@ -40,7 +41,7 @@ def main():
     
     # Mean / std dev scaling is performed to the model output
     scaler = dataloader['scaler']
-
+    
     engine = Model(scaler=scaler,
                    num_nodes=args.num_nodes,
                    lrate=args.learning_rate, 
@@ -52,6 +53,8 @@ def main():
                    patch_len=args.patch_len,
                    stride=args.stride,
                    blackbox_file=args.blackbox_file)
+    if(args.starts_at > 0):
+        engine.load_state_dict(torch.load('saved_models/G_T_model_' + str(args.starts_at) + '.pth'))
 
     if not os.path.exists(args.save):
         os.makedirs(args.save)
@@ -59,14 +62,13 @@ def main():
     log_file_train = open('loss_train_log.txt', 'w')
     log_file_val = open('loss_val_log.txt', 'w')
 
-
     print("start training...", flush=True)
     his_loss = []
     val_time = []
     train_time = []
     best_epoch = 0
 
-    for i in range(1, args.epochs + 1):
+    for i in range(1 + args.starts_at, args.epochs + args.starts_at + 1):
         train_loss = []
         train_mape = []
         train_rmse = []

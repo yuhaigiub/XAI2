@@ -60,7 +60,7 @@ def main():
         t1 = time.time()
         dataloader['train_loader'].shuffle()
         for iter, (x, y) in enumerate(dataloader['train_loader'].get_iterator()):
-            trainx = torch.Tensor(x).to(device)
+            trainx = torch.Tensor(x[..., 0:1]).to(device)
             trainx = trainx.transpose(1, 3)
             trainy = torch.Tensor(y).to(device)
             trainy = trainy.transpose(1, 3)
@@ -84,7 +84,7 @@ def main():
 
         s1 = time.time()
         for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
-            testx = torch.Tensor(x).to(device)
+            testx = torch.Tensor(x[..., 0:1]).to(device)
             testx = testx.transpose(1, 3)
             testy = torch.Tensor(y).to(device)
             testy = testy.transpose(1, 3)
@@ -138,7 +138,7 @@ def main():
     realy = realy.transpose(1, 3)[:, 0, :, :]
 
     for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
-        testx = torch.Tensor(x).to(device)
+        testx = torch.Tensor(x[..., 0:1]).to(device)
         with torch.no_grad():
             preds = engine.gwnet(testx, engine.edge_index, engine.edge_weight)
             preds = preds.transpose(1, 3)
