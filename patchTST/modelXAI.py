@@ -22,12 +22,12 @@ class Model():
         self.blackbox.to(device)
         
         self.device = device
-        # self.optimizer = optim.Adam(self.patchTST.parameters(), lr=lrate, weight_decay=wdecay)
+        self.optimizer = optim.Adam(self.patchTST.parameters(), lr=lrate, weight_decay=wdecay)
         self.loss = util.masked_mae
         self.scaler = scaler
         self.clip = 5
         
-        self.pertubation = FadeMovingAverage(device)
+        self.pertubate = FadeMovingAverage(device)
 
         self.edge_index = [[], []]
         self.edge_weight = []
@@ -43,43 +43,38 @@ class Model():
 
         self.edge_index = torch.tensor(self.edge_index)
         self.edge_weight = torch.tensor(self.edge_weight)
-        
-        self.saliency = 0.5 * torch.ones(size=[8, 12, 207], device=self.device)
-        self.saliency = self.saliency.clone().detach().requires_grad_(True)
-        self.optimizer = optim.Adam([self.saliency], lr=lrate, weight_decay=wdecay)
 
     def train(self, input: torch.Tensor, real_val):
         self.patchTST.train()
         self.optimizer.zero_grad()
         
-        # only take the first feature
-        input = input[..., 0:1]
+        inputTST = input[..., 0]        
+        inputTST = inputTST.squeeze(-1)
         
-        X_pert = self.pertubation.apply(input, self.saliency.unsqueeze(-1))
-        X_pert = X_pert.transpose(1, 3).transpose(-3, -1)
+        saliency = self.patchTST(inputTST)
         
-        # self.saliency = self.patchTST(input.squeeze(-1))
+        output = self.blackbox(input.transpose(1, 3).transpose(-3, -1), 
+                               self.edge_index,
+                               self.edge_weight) # Y
+        output = output.transpose(1, 3)
         
-        # X = input.transpose(1, 3).transpose(-3, -1)
-        # Y = 0 # TODO:
         
+        inputBlackbox = self.pertubate.apply(input, saliency.unsqueeze(-1))
+        inputBlackbox = inputBlackbox.transpose(1, 3).transpose(-3, -1)
+        # real_val = real_val.transpose(1, 3)[:, 0,: ,: ]
         
-        real_val = real_val.transpose(1, 3)[:, 0,: ,: ]
+        outputBlackbox = self.blackbox(inputBlackbox, self.edge_index, self.edge_weight) # Ym
+        outputBlackbox = outputBlackbox.transpose(-3, -1)
         
-        output = self.blackbox(X_pert, self.edge_index, self.edge_weight)
-        output = output.transpose(-3, -1)
-        
-        real = torch.unsqueeze(real_val, dim=1)
-        predict = self.scaler.inverse_transform(output)
-        
+        real = torch.unsqueeze(output, dim=1)
+        predict = self.scaler.inverse_transform(outputBlackbox)
+
         loss = self.loss(predict, real, 0.0)
         loss.backward()
         
         if self.clip is not None:
             torch.nn.utils.clip_grad_norm_(self.patchTST.parameters(), self.clip)
         self.optimizer.step()
-        
-        self.saliency.data = self.saliency.data.clamp(0, 1)
         
         mape = util.masked_mape(predict, real, 0.0).item()
         rmse = util.masked_rmse(predict, real, 0.0).item()
@@ -89,25 +84,26 @@ class Model():
     def eval(self, input: torch.Tensor, real_val):
         self.patchTST.eval()
         
-        # only take the first feature
-        input = input[..., 0:1]
+        inputTST = input[..., 0]        
+        inputTST = inputTST.squeeze(-1)
+        saliency = self.patchTST(inputTST)
         
-        # saliency = self.patchTST(input.squeeze(-1))
+        output = self.blackbox(input.transpose(1, 3).transpose(-3, -1), 
+                               self.edge_index,
+                               self.edge_weight) # Y
+        output = output.transpose(1, 3)
         
-        # X = input.transpose(1, 3).transpose(-3, -1)
-        # Y = 0 # TODO:
         
-        X_pert = self.pertubation.apply(input, self.saliency.unsqueeze(-1))
-        X_pert = X_pert.transpose(1, 3).transpose(-3, -1)
+        inputBlackbox = self.pertubate.apply(input, saliency.unsqueeze(-1))
+        inputBlackbox = inputBlackbox.transpose(1, 3).transpose(-3, -1)
+        # real_val = real_val.transpose(1, 3)[:, 0,: ,: ]
         
-        real_val = real_val.transpose(1, 3)[:, 0,: ,: ]
+        outputBlackbox = self.blackbox(inputBlackbox, self.edge_index, self.edge_weight) # Ym
+        outputBlackbox = outputBlackbox.transpose(-3, -1)
         
-        output = self.blackbox(X_pert, self.edge_index, self.edge_weight)
-        output = output.transpose(-3, -1)
+        real = torch.unsqueeze(output, dim=1)
+        predict = self.scaler.inverse_transform(outputBlackbox)
         
-        real = torch.unsqueeze(real_val, dim=1)
-        predict = self.scaler.inverse_transform(output)
-
         loss = self.loss(predict, real, 0.0)
         
         mape = util.masked_mape(predict, real, 0.0).item()
